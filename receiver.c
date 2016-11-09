@@ -35,7 +35,6 @@ static Byte *q_get(QTYPE *, Byte *);
 Byte t[2];
 int rcvdByte = 0;
 int cnsmByte = 0;
-struct sockaddr_storage clntAddr;
 struct sockaddr_in client, local;
 
 #define MIN_UPPERLIMIT 4
@@ -56,58 +55,15 @@ int main(int argc, char const *argv[])
 	}
 	local.sin_family = AF_INET;
 	local.sin_addr.s_addr = htonl(INADDR_ANY);
-	local.sin_port = htons((short unsigned)argv[1]);
+	local.sin_port = htons(argv[0]);
 	if (bind(sockfd, (struct sockaddr*)&local, sizeof(local)) != 0){
 		printf("Binding gagal\n");
 		exit(0);
 	}
 	else{
-		printf("Binding pada %d.%d.%d.%d:%d\n", (int)(local.sin_addr.s_addr & 0xFF), (int)((local.sin_addr.s_addr & 0xFF00) >> 8), (int)((local.sin_addr.s_addr & 0xFF0000) >> 16), (int)((local.sin_addr.s_addr & 0xFF000000) >> 24), (int)local.sin_port);
+		printf("Binding pada %d.%d.%d.%d:%d\n", (int)(local.sin_addr.s_addr & 0xFF), (int)((local.sin_addr.s_addr & 0xFF00) >> 8), (int)((local.sin_addr.s_addr & 0xFF0000) >> 16), (int)((local.sin_addr.s_addr & 0xFF000000) >> 24), (unsigned)local.sin_port);
 	}
 	
-	/* Initialize XON/XOFF flags */
-	
-	/* Create child process */
-	pid_t  pid = fork();
-	if(pid != 0){
-		/*** IF PARENT PROCESS ***/
-		while ( true ) {
-			c = *(rcvchar(sockfd, rxq));
-			/* Quit on end of file */
-			if (c == Endfile) {
-				exit(0);
-			}
-		}
-	}
-	else{
-		/*** ELSE IF CHILD PROCESS ***/
-		while ( true ) {
-			/* Call q_get */
-			Byte *coba = q_get(rxq, &c);
-			if(coba != NULL){
-				if(rxq->front > 0){
-					if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
-						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[rxq->front - 1]);
-					}
-					else if(rxq->data[rxq->front - 1] == Endfile){
-						//do nothing
-						exit(0);
-					}
-				}
-				else{
-					if((rxq->data[7] != Endfile) && (rxq->data[7] != CR) && (rxq->data[7] != LF)){
-						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[7]);
-					}
-					else if(rxq->data[7] == Endfile){
-						exit(0);
-					}
-				}
-				
-			}
-			/* Can introduce some delay here. */
-			usleep(DELAY * 1000);
-		}
-	}
 	close(sockfd);
 	return 0;
 }
@@ -123,7 +79,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	*/
 	
 	if(!send_xoff){
-		ssize_t nBytesRcvd = recvfrom(sockfd, t, sizeof(t), 0, (struct sockaddr*)&clntAddr, (socklen_t*)sizeof(clntAddr));
+		ssize_t nBytesRcvd = recvfrom(sockfd, t, sizeof(t), 0, (struct sockaddr*)&client, (socklen_t*)sizeof(client));
 		if(nBytesRcvd < 0){
 			printf("recvfrom failed\n");
 		}
@@ -149,7 +105,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 			printf("Buffer > minimum upperlimit\n");
 			char test[2];
 			test[0] = XOFF;
-			ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&clntAddr, sizeof(clntAddr));
+			ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&client, sizeof(client));
 			printf("Mengirim XOFF\n");
 			if(nBytesSnt < 0){
 				printf("sendto failed\n");
@@ -199,7 +155,7 @@ static Byte *q_get(QTYPE *queue, Byte *data) {
 		printf("Buffer < maximum lowerlimit\n");
 		char test[2];
 		test[0] = XON;
-		ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&clntAddr, sizeof(clntAddr));
+		ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&client, sizeof(client));
 		printf("Mengirim XON\n");
 		if(nBytesSnt < 0){
 			printf("sendto failed\n");
