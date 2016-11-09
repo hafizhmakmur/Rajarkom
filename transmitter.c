@@ -11,7 +11,7 @@
 #include <netdb.h> 
 #include "dcomm.h"
 
-char recieved;
+char recieved = XOFF;
 Boolean shtdown = false;
 
 
@@ -70,16 +70,43 @@ int main(int argc, char *argv[]) {
 			peer_addr_len = sizeof(struct sockaddr_storage);
 			recvfrom(sockfd,ch,1,0,(struct sockaddr *) &peer_addr, &peer_addr_len);
 			recieved = ch[0];
+
+			if (recieved == XOFF) {
+				printf("XOFF diterima\n");
+			} else if (recieved == XON) {
+				printf("XON diterima\n");
+			}
 		
 		} while (!shtdown);
 
-	} else {
+	} else {;
+    	
+    	FILE *f = fopen(filename,"rb");
 
+    	char red;
+    	int i = 1;
+		while (fscanf(f, "%c", &red) != EOF) {
+			while (recieved == XOFF) {
+				printf("Menunggu XON...\n");
+				sleep(1);
+			}
+
+			printf("Mengirim byte ke-%d: '%c'\n",i,red);
+			
+			char buf[1];
+			buf[0] = red;
+			sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
+
+            i++;
+		}
+
+		fclose(f);
 	}
 	
-
-	printf("Server Down\n");
+	printf("Mengakhiri koneksi\n");
 	close(sockfd);
+	shtdown = true;
+	
 	return 0;
 }
 	
