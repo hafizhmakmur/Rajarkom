@@ -63,7 +63,59 @@ int main(int argc, char const *argv[])
 	else{
 		printf("Binding pada %d.%d.%d.%d:%d\n", (int)(local.sin_addr.s_addr & 0xFF), (int)((local.sin_addr.s_addr & 0xFF00) >> 8), (int)((local.sin_addr.s_addr & 0xFF0000) >> 16), (int)((local.sin_addr.s_addr & 0xFF000000) >> 24), (unsigned)local.sin_port);
 	}
+	if(listen(sockfd, 5) != 0){
+		printf("Gagal mendengar\n");
+	}
+	/* Initialize XON/XOFF flags */
 	
+	/* Create child process */
+	pid_t  pid = fork();
+	if(pid != 0){
+		/*** IF PARENT PROCESS ***/
+		while ( true ) {
+			c = *(rcvchar(sockfd, rxq));
+	
+			/* Quit on end of file */
+	
+			if (c == Endfile) {
+				exit(0);
+			}
+		}
+	}
+	else{
+	
+		/*** ELSE IF CHILD PROCESS ***/
+	
+		while ( true ) {
+			/* Call q_get */
+			if(accept(sockfd, (struct sockaddr*)&client, (socklen_t*)sizeof(client)) >= 0){
+				Byte *coba = q_get(rxq, &c);
+				if(coba != NULL){
+					if(rxq->front > 0){
+						if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
+							printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[rxq->front - 1]);
+						}
+						else if(rxq->data[rxq->front - 1] == Endfile){
+							//do nothing
+							exit(0);
+						}
+					}
+					else{
+						if((rxq->data[7] != Endfile) && (rxq->data[7] != CR) && (rxq->data[7] != LF)){
+							printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[7]);
+						}
+						else if(rxq->data[7] == Endfile){
+							exit(0);
+						}
+					}
+					
+				}
+				
+				/* Can introduce some delay here. */
+				usleep(DELAY * 1000);
+			}
+		}
+	}
 	close(sockfd);
 	return 0;
 }
