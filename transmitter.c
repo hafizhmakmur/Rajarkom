@@ -11,7 +11,7 @@
 #include <netdb.h> 
 #include "dcomm.h"
 
-char recieved = XOFF;
+char recieved = -1;
 Boolean shtdown = false;
 
 
@@ -63,7 +63,6 @@ int main(int argc, char *argv[]) {
 	pid = fork();
 	
 	if (pid == 0)  {
-
 		do {
 		
 			char ch[1];
@@ -95,17 +94,18 @@ int main(int argc, char *argv[]) {
 			
 			char buf[1];
 			buf[0] = red;
+			peer_addr_len = sizeof(struct sockaddr_storage);
 			sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
 
             i++;
 		}
 
 		fclose(f);
+		shtdown = true;
 	}
 	
 	printf("Mengakhiri koneksi\n");
 	close(sockfd);
-	shtdown = true;
 	
 	return 0;
 }
