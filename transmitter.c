@@ -3,56 +3,80 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/sysinfo.h>
 #include <netinet/in.h>
+#include <netdb.h> 
 #include "dcomm.h"
 
-int main(int argc, char const *argv[])
-{
-	/* code */
-	int sockfd, newsockfd;	// Socket File Descriptor
-    char* portnostr = argv[2];
-    char* textfile;  
-    int portno;
-    int clilen;
-     
-	char buffer[256];
-	struct sockaddr_in serv_addr, cli_addr; // Socket Addresses
-	int n;
-     
-	char hostname[256];
-	bzero(hostname,256);
-	gethostname(hostname, 255);
+char recieved;
+Boolean shtdown = false;
 
-    // Try opening socket
+
+void error(const char *msg) {
+    perror(msg);
+    exit(0);
+}
+
+int main(int argc, char *argv[]) {
+	/* code */
+	int sockfd, portno, n;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+    struct sockaddr_storage peer_addr;
+    socklen_t peer_addr_len;
+    char buffer[256], filename[256];
+
+    if (argc < 4) {
+       fprintf(stderr,"usage %s hostname port filename\n", argv[0]);
+       exit(0);
+    }
+
+    portno = atoi(argv[2]);
+    strcpy(filename,argv[3]);
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) error("ERROR opening socket");
+    if (sockfd < 0) 
+        error("ERROR opening socket");
     
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0)
-		error("setsockopt(SO_REUSEADDR) failed");
-     
-    // Reset buffer
+    server = gethostbyname(argv[1]);
+    if (server == NULL) {
+        fprintf(stderr,"ERROR, no such host\n");
+        exit(0);
+    }
+    
     bzero((char *) &serv_addr, sizeof(serv_addr));
-     
-    // Bind the server address to the server socket
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    bcopy((char *)server->h_addr, 
+         (char *)&serv_addr.sin_addr.s_addr,
+         server->h_length);
     serv_addr.sin_port = htons(portno);
-    if (bind(sockfd, (struct sockaddr *) &serv_addr,
-		sizeof(serv_addr)) < 0) error("ERROR on binding");
+
+    printf("Memulai socket untuk koneksi %s:%d ...\n",argv[1],portno);
+
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
+        error("ERROR connecting");
      
-     // Set listen paramater         
-    listen(sockfd,5);
-     
-    printf("Listening for connection\n");
-     
-    char buf[256];
-    while(1) {
+	pid_t  pid;
+	pid = fork();
+	
+	if (pid == 0)  {
+
+		do {
+		
+			char ch[1];
+			peer_addr_len = sizeof(struct sockaddr_storage);
+			recvfrom(sockfd,ch,1,0,(struct sockaddr *) &peer_addr, &peer_addr_len);
+			recieved = ch[0];
+		
+		} while (!shtdown);
+
+	} else {
 
 	}
+	
 
 	printf("Server Down\n");
 	close(sockfd);
