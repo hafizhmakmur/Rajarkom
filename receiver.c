@@ -33,10 +33,29 @@ int main(int argc, char const *argv[])
 {
 	/* code */
 	Byte c;
+	SOCKET sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	SOCKADDR_IN sender, local;
 	/*
 		Insert code here to bind socket to the port number given in argv[1].
 	*/
-
+	
+	if(sockfd == INVALID_SOCKET){
+		printf("Socket failed\n");
+		exit(0);
+	}
+	local.sin_family = AF_INET;
+	if(bInterface){
+		local.sin_addr.s_addr = inet_addr(szInterface);
+	}
+	else{
+		local.sin_addr.sin_addr = htonl(INADDR_ANY);
+	}
+	local.sin_port = htons((short)argv[1]);
+	if (bind(socketfd, (SOCKADDR*)&local, sizeof(local)) != 0){
+		printf("Bind failed\n");
+		exit(0);
+	}
+	
 	/* Initialize XON/XOFF flags */
 	/* Create child process */
 	
