@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <sys/sysinfo.h>
@@ -19,8 +20,7 @@
 #define RXQSIZE 8
 
 Byte rxbuf[RXQSIZE];
-QTYPE rcvq = { 0, 0, 0, RXQSIZE, rxbuf };
-QTYPE *rxq = &rcvq;
+QTYPE *rxq;
 Byte sent_xonxoff = XON;
 Boolean send_xon = false, send_xoff = false;
 
@@ -48,6 +48,15 @@ void error(const char *msg) {
 int main(int argc, char const *argv[])
 {
 	/* code */
+	rxq = mmap(NULL, sizeof *rxq, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	rxq->count = 0;
+	rxq->front = 0;
+	rxq->rear = 0;
+	rxq->maxsize = RXQSIZE;
+	rxq->data = rxbuf;
+
 	Byte c;
 	
 	/* Socket */
@@ -84,60 +93,69 @@ int main(int argc, char const *argv[])
 	printf("There there\n");
 
     char buf[256];    
-    while(1) {
-		 
-		// Wait until client connect
-		int clilen = sizeof(client);
-		int newsockfd = accept(sockfd, (struct sockaddr*)&client, &clilen);
 
-		if (newsockfd < 0) error("ERROR on accept");
+	// Wait until client connect
+	int clilen = sizeof(client);
+	int newsockfd = accept(sockfd, (struct sockaddr*)&client, &clilen);
+
+	if (newsockfd < 0) error("ERROR on accept");
+
+	printf("Here I am\n");
+	pid_t  pid = fork();
+	if(pid != 0){
+		printf("Parent here %d\n",pid);
+		/*** IF PARENT PROCESS ***/
+		int i;
+		while ( i < 20 ) {
+			char * s = rcvchar(newsockfd, rxq);
+			if (s != NULL) c = *s;
+
+			printf("Back from the other side\n");
 	
-		printf("Here I am\n");
-		pid_t  pid = fork();
-		if(pid != 0){
-			printf("Parent here %d\n",pid);
-			/*** IF PARENT PROCESS ***/
-			while ( true ) {
-				c = *(rcvchar(newsockfd, rxq));
-		
-				/* Quit on end of file */	
-				if (c == Endfile) {
-					exit(0);
-				}
+			/* Quit on end of file */	
+			if (c == Endfile) {
+				exit(0);
 			}
-		} else {
-		
-			/*** ELSE IF CHILD PROCESS ***/
-		
-			while ( true ) {
-				/* Call q_get */
-				Byte *coba = q_get(newsockfd, rxq, &c);
-				if(coba != NULL){
-					if(rxq->front > 0){
-						if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
-							printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[rxq->front - 1]);
-						}
-						else if(rxq->data[rxq->front - 1] == Endfile){
-							//do nothing
-							exit(0);
-						}
+			i++;
+		}
+
+		munmap(rxq, sizeof *rxq);
+	} else {
+	
+		/*** ELSE IF CHILD PROCESS ***/
+		printf("Child reporting\n");
+		int i=0;
+		while ( i < 20 ) {
+			/* Call q_get */
+			Byte *coba = q_get(newsockfd, rxq, &c);
+			printf("Alola %s\n",coba);
+			if(coba != NULL){
+				if(rxq->front > 0){
+					if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
+						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[rxq->front - 1]);
 					}
-					else{
-						if((rxq->data[7] != Endfile) && (rxq->data[7] != CR) && (rxq->data[7] != LF)){
-							printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[7]);
-						}
-						else if(rxq->data[7] == Endfile){
-							exit(0);
-						}
+					else if(rxq->data[rxq->front - 1] == Endfile){
+						//do nothing
+						exit(0);
 					}
-					
+				}
+				else{
+					if((rxq->data[7] != Endfile) && (rxq->data[7] != CR) && (rxq->data[7] != LF)){
+						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[7]);
+					}
+					else if(rxq->data[7] == Endfile){
+						exit(0);
+					}
 				}
 				
-				/* Can introduce some delay here. */
-				usleep(DELAY * 1000);
 			}
+			
+			/* Can introduce some delay here. */
+			usleep(DELAY * 1000);
+			i++;
 		}
-		printf("Try again\n");
+
+
 	}
 	printf("Game over\n");
 	close(sockfd);
@@ -154,49 +172,56 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	Return a pointer to the buffer where data is put.
 	*/
 	
-	if(!send_xoff){
-		printf("Greetings\n");
-		int clilen = sizeof(client);
-		ssize_t nBytesRcvd = recvfrom(sockfd, t, sizeof(t), 0, (struct sockaddr*)&client, &clilen);
-		printf("How's there\n");
-		if(nBytesRcvd < 0){
-			printf("recvfrom failed\n");
-		}
-		else{
-			queue->data[queue->rear] = t[0];
-			queue->count = queue->count + 1;
-			if(queue->rear < 7){
-				queue->rear = queue->rear + 1;
-			}
-			else{
-				queue->rear = 0;
-			}
-			rcvdByte = rcvdByte + 1;
-			printf("Pass this\n");
-		}
-		if((t[0] != Endfile) && (t[0] != CR) && (t[0] != LF)){
-			printf("Menerima byte ke-%d\n", rcvdByte);
-		}
-		
-		if((queue->count > MIN_UPPERLIMIT) && (sent_xonxoff == XON)){
-			sent_xonxoff = XOFF;
-			send_xoff = true;
-			send_xon = false;
-			printf("Buffer > minimum upperlimit\n");
-			char test[2];
-			test[0] = XOFF;
-			ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&client, sizeof(client));
-			printf("Mengirim XOFF\n");
-			if(nBytesSnt < 0){
-				printf("sendto failed\n");
-			}
-		}
-		return &t[0];
+
+	while(send_xoff){}
+
+	printf("Greetings\n");
+	int clilen = sizeof(client);
+	ssize_t nBytesRcvd = recvfrom(sockfd, t, sizeof(t), 0, (struct sockaddr*)&client, &clilen);
+	printf("How's there\n");
+	if(nBytesRcvd < 0){
+		printf("recvfrom failed\n");
 	}
 	else{
+		queue->data[queue->rear] = t[0];
+		printf("Must be here\n");
+		queue->count = queue->count + 1;
+		if(queue->rear < 7){
+			queue->rear = queue->rear + 1;
+		}
+		else{
+			queue->rear = 0;
+		}
+		rcvdByte = rcvdByte + 1;
+		printf("Pass this %d\n",queue->count);
+	}
+	if((t[0] != Endfile) && (t[0] != CR) && (t[0] != LF)){
+		printf("Menerima byte ke-%d\n", rcvdByte);
+	}
+	
+	if((queue->count > MIN_UPPERLIMIT) && (sent_xonxoff == XON)){
+		sent_xonxoff = XOFF;
+		send_xoff = true;
+		send_xon = false;
+		printf("Buffer > minimum upperlimit\n");
+		char test[1];
+		test[0] = XOFF;
+		ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&client, sizeof(client));
+		printf("Mengirim XOFF\n");
+		if(nBytesSnt < 0){
+			printf("sendto failed\n");
+		}
+	}
+	printf("???\n");
+	return &t[0];
+ 
+/*
+	else {
 		Byte *buff = 0;
+		printf("!!! %s\n",buff);
 		return buff;
 	}
+*/
 }
 
 	/* q_get returns a pointer to the buffer where data is read or NULL if
@@ -206,6 +231,8 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 	/* Nothing in the queue */
 	
+	printf("Now i am done %d\n",queue->count);
+
 	if (!queue->count) return (NULL);
 	/*
 	Insert code here.
@@ -214,6 +241,7 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 	certain level, then send XON.
 	Increment front index and check for wraparound.
 	*/
+	printf("When I have evolved\n");
 	do{
 		if(queue->count > 0){
 			(*data) = queue->data[queue->front];
@@ -233,7 +261,7 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 		send_xoff = false;
 		send_xon = true;
 		printf("Buffer < maximum lowerlimit\n");
-		char test[2];
+		char test[1];
 		test[0] = XON;
 		ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&client, sizeof(client));
 		printf("Mengirim XON\n");

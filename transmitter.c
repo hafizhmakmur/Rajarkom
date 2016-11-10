@@ -5,13 +5,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
 #include "dcomm.h"
 
-char recieved = -1;
+static Byte *recieved;
 Boolean shtdown = false;
 
 
@@ -22,6 +23,12 @@ void error(const char *msg) {
 
 int main(int argc, char *argv[]) {
 	/* code */
+
+	recieved = mmap(NULL, sizeof *recieved, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*recieved = XON;
+
 	int sockfd, portno, n;
     struct sockaddr_in serv_addr;
     struct hostent *server;
@@ -58,25 +65,30 @@ int main(int argc, char *argv[]) {
 
     if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
         error("ERROR connecting");
-     
+    
 	pid_t  pid;
 	pid = fork();
 	
 	if (pid == 0)  {
+		int i = 0;
 		do {
-		
+
+			printf("Heh : %d\n",*recieved);
 			char ch[1];
 			peer_addr_len = sizeof(struct sockaddr_storage);
 			recvfrom(sockfd,ch,1,0,(struct sockaddr *) &peer_addr, &peer_addr_len);
-			recieved = ch[0];
+			*recieved = ch[0];
 
-			if (recieved == XOFF) {
+			if (*recieved == XOFF) {
 				printf("XOFF diterima\n");
-			} else if (recieved == XON) {
+			} else if (*recieved == XON) {
 				printf("XON diterima\n");
 			}
+
+			printf("Yey %d\n",*recieved);
+			i++;
 		
-		} while (!shtdown);
+		} while (!shtdown && i<20);
 
 	} else {;
     	
@@ -85,7 +97,8 @@ int main(int argc, char *argv[]) {
     	char red;
     	int i = 1;
 		while (fscanf(f, "%c", &red) != EOF) {
-			while (recieved == XOFF) {
+			printf("recieved : %d\n",*recieved);
+			while (*recieved != XON) {
 				printf("Menunggu XON...\n");
 				sleep(1);
 			}
@@ -98,10 +111,14 @@ int main(int argc, char *argv[]) {
 			sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
 
             i++;
+
+//			usleep(500 * 1000);
+
 		}
 
 		fclose(f);
 		shtdown = true;
+		munmap(recieved, sizeof *recieved);
 	}
 	
 	printf("Mengakhiri koneksi\n");
