@@ -25,12 +25,10 @@ Byte sent_xonxoff = XON;
 Boolean send_xon = false, send_xoff = false;
 
 
-/* Socket */
-int sockfd; // listen of sock_fd
 
 /* Functions declaration */
 static Byte *rcvchar(int sockfd, QTYPE *queue);
-static Byte *q_get(QTYPE *, Byte *);
+static Byte *q_get(int sockfd, QTYPE *, Byte *);
 
 /* Other variables */
 Byte t[2];
@@ -51,6 +49,9 @@ int main(int argc, char const *argv[])
 {
 	/* code */
 	Byte c;
+	
+	/* Socket */
+	int sockfd; // listen of sock_fd
 	
 	/*
 		Insert code here to bind socket to the port number given in argv[1].
@@ -97,7 +98,7 @@ int main(int argc, char const *argv[])
 			printf("Parent here %d\n",pid);
 			/*** IF PARENT PROCESS ***/
 			while ( true ) {
-				c = *(rcvchar(sockfd, rxq));
+				c = *(rcvchar(newsockfd, rxq));
 		
 				/* Quit on end of file */	
 				if (c == Endfile) {
@@ -110,7 +111,7 @@ int main(int argc, char const *argv[])
 		
 			while ( true ) {
 				/* Call q_get */
-				Byte *coba = q_get(rxq, &c);
+				Byte *coba = q_get(newsockfd, rxq, &c);
 				if(coba != NULL){
 					if(rxq->front > 0){
 						if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
@@ -155,7 +156,8 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	
 	if(!send_xoff){
 		printf("Greetings\n");
-		ssize_t nBytesRcvd = recvfrom(sockfd, t, sizeof(t), 0, (struct sockaddr*)&client, (socklen_t*)sizeof(client));
+		int clilen = sizeof(client);
+		ssize_t nBytesRcvd = recvfrom(sockfd, t, sizeof(t), 0, (struct sockaddr*)&client, &clilen);
 		printf("How's there\n");
 		if(nBytesRcvd < 0){
 			printf("recvfrom failed\n");
@@ -201,7 +203,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	* buffer is empty.
 	*/
 
-static Byte *q_get(QTYPE *queue, Byte *data) {
+static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 	/* Nothing in the queue */
 	
 	if (!queue->count) return (NULL);
