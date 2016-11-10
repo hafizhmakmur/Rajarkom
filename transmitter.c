@@ -13,7 +13,7 @@
 #include "dcomm.h"
 
 static Byte *recieved;
-Boolean shtdown = false;
+Boolean *shtdown;
 
 
 void error(const char *msg) {
@@ -28,6 +28,12 @@ int main(int argc, char *argv[]) {
                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	*recieved = XON;
+
+
+	shtdown = mmap(NULL, sizeof *shtdown, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*shtdown = false;
 
 	int sockfd, portno, n;
     struct sockaddr_in serv_addr;
@@ -88,7 +94,7 @@ int main(int argc, char *argv[]) {
 			printf("Yey %d\n",*recieved);
 			i++;
 		
-		} while (!shtdown && i<20);
+		} while (!*shtdown && i<20);
 
 	} else {;
     	
@@ -112,12 +118,12 @@ int main(int argc, char *argv[]) {
 
             i++;
 
-//			usleep(500 * 1000);
+			usleep(20 * 1000);
 
 		}
 
 		fclose(f);
-		shtdown = true;
+		*shtdown = true;
 		munmap(recieved, sizeof *recieved);
 	}
 	

@@ -21,10 +21,8 @@
 
 Byte rxbuf[RXQSIZE];
 QTYPE *rxq;
-Byte sent_xonxoff = XON;
-Boolean send_xon = false, send_xoff = false;
-
-
+Byte *sent_xonxoff;
+Boolean *send_xon = false, *send_xoff = false;
 
 /* Functions declaration */
 static Byte *rcvchar(int sockfd, QTYPE *queue);
@@ -32,8 +30,8 @@ static Byte *q_get(int sockfd, QTYPE *, Byte *);
 
 /* Other variables */
 Byte t[2];
-int rcvdByte = 0;
-int cnsmByte = 0;
+int *rcvdByte = 0;
+int *cnsmByte = 0;
 struct sockaddr_in client, local;
 
 #define MIN_UPPERLIMIT 4
@@ -48,6 +46,7 @@ void error(const char *msg) {
 int main(int argc, char const *argv[])
 {
 	/* code */
+
 	rxq = mmap(NULL, sizeof *rxq, PROT_READ | PROT_WRITE, 
                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
@@ -56,6 +55,32 @@ int main(int argc, char const *argv[])
 	rxq->rear = 0;
 	rxq->maxsize = RXQSIZE;
 	rxq->data = rxbuf;
+
+	send_xon = mmap(NULL, sizeof *send_xon, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*send_xon = false;
+
+	send_xoff = mmap(NULL, sizeof *send_xoff, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*send_xoff = false;
+
+	sent_xonxoff = mmap(NULL, sizeof *sent_xonxoff, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*sent_xonxoff = XON;
+
+	rcvdByte = mmap(NULL, sizeof *rcvdByte, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*rcvdByte = 0;
+
+	cnsmByte = mmap(NULL, sizeof *cnsmByte, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*cnsmByte = 0;
+
 
 	Byte c;
 	
@@ -132,7 +157,7 @@ int main(int argc, char const *argv[])
 			if(coba != NULL){
 				if(rxq->front > 0){
 					if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
-						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[rxq->front - 1]);
+						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++*cnsmByte, rxq->data[rxq->front - 1]);
 					}
 					else if(rxq->data[rxq->front - 1] == Endfile){
 						//do nothing
@@ -141,7 +166,7 @@ int main(int argc, char const *argv[])
 				}
 				else{
 					if((rxq->data[7] != Endfile) && (rxq->data[7] != CR) && (rxq->data[7] != LF)){
-						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnsmByte, rxq->data[7]);
+						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++*cnsmByte, rxq->data[7]);
 					}
 					else if(rxq->data[7] == Endfile){
 						exit(0);
@@ -173,18 +198,20 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	*/
 	
 
-	while(send_xoff){}
+	while(*send_xoff){
+//		printf("Consume already %d!\n",queue->count);
+	}
 
-	printf("Greetings\n");
+//	printf("Greetings\n");
 	int clilen = sizeof(client);
 	ssize_t nBytesRcvd = recvfrom(sockfd, t, sizeof(t), 0, (struct sockaddr*)&client, &clilen);
-	printf("How's there\n");
+//	printf("How's there\n");
 	if(nBytesRcvd < 0){
 		printf("recvfrom failed\n");
 	}
 	else{
 		queue->data[queue->rear] = t[0];
-		printf("Must be here\n");
+		printf("Must be here %d\n", queue->data[queue->rear]);
 		queue->count = queue->count + 1;
 		if(queue->rear < 7){
 			queue->rear = queue->rear + 1;
@@ -192,17 +219,17 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 		else{
 			queue->rear = 0;
 		}
-		rcvdByte = rcvdByte + 1;
+		*rcvdByte = *rcvdByte + 1;
 		printf("Pass this %d\n",queue->count);
 	}
 	if((t[0] != Endfile) && (t[0] != CR) && (t[0] != LF)){
-		printf("Menerima byte ke-%d\n", rcvdByte);
+		printf("Menerima byte ke-%d\n", *rcvdByte);
 	}
 	
-	if((queue->count > MIN_UPPERLIMIT) && (sent_xonxoff == XON)){
-		sent_xonxoff = XOFF;
-		send_xoff = true;
-		send_xon = false;
+	if((queue->count > MIN_UPPERLIMIT) && (*sent_xonxoff == XON)){
+		*sent_xonxoff = XOFF;
+		*send_xoff = true;
+		*send_xon = false;
 		printf("Buffer > minimum upperlimit\n");
 		char test[1];
 		test[0] = XOFF;
@@ -212,7 +239,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 			printf("sendto failed\n");
 		}
 	}
-	printf("???\n");
+//	printf("???\n");
 	return &t[0];
  
 /*
@@ -242,6 +269,8 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 	Increment front index and check for wraparound.
 	*/
 	printf("When I have evolved\n");
+	Boolean validchar = false;
+	int i = 0;
 	do{
 		if(queue->count > 0){
 			(*data) = queue->data[queue->front];
@@ -252,14 +281,23 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 			else{
 				queue->front = 0;
 			}
+			
+			printf("Laporan %d xx%cxx\n",queue->count,*data);
+			if (*data > 32 || *data == CR || *data == LF || *data == Endfile) {
+				validchar = true;
+			}
 		}
+		i++;
 	}
-	while((*data < 32) && (*data != LF) && (queue->count >0));
+//	while((*data < 32) && (*data != LF) && (queue->count >0));
+	while (!validchar && i < 20);
 	
-	if((queue->count < MAX_LOWERLIMIT) && (sent_xonxoff == XOFF)){
-		sent_xonxoff = XON;
-		send_xoff = false;
-		send_xon = true;
+	printf("Akhiri %d %d\n",*sent_xonxoff,XOFF);
+
+	if((queue->count < MAX_LOWERLIMIT) && (*sent_xonxoff == XOFF)){
+		*sent_xonxoff = XON;
+		*send_xoff = false;
+		*send_xon = true;
 		printf("Buffer < maximum lowerlimit\n");
 		char test[1];
 		test[0] = XON;
