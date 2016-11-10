@@ -76,10 +76,8 @@ int main(int argc, char *argv[]) {
 	pid = fork();
 	
 	if (pid == 0)  {
-		int i = 0;
 		do {
 
-			printf("Heh : %d\n",*recieved);
 			char ch[1];
 			peer_addr_len = sizeof(struct sockaddr_storage);
 			recvfrom(sockfd,ch,1,0,(struct sockaddr *) &peer_addr, &peer_addr_len);
@@ -90,11 +88,8 @@ int main(int argc, char *argv[]) {
 			} else if (*recieved == XON) {
 				printf("XON diterima\n");
 			}
-
-			printf("Yey %d\n",*recieved);
-			i++;
 		
-		} while (!*shtdown && i<20);
+		} while (!*shtdown);
 
 	} else {;
     	
@@ -103,7 +98,6 @@ int main(int argc, char *argv[]) {
     	char red;
     	int i = 1;
 		while (fscanf(f, "%c", &red) != EOF) {
-			printf("recieved : %d\n",*recieved);
 			while (*recieved != XON) {
 				printf("Menunggu XON...\n");
 				sleep(1);
@@ -122,13 +116,21 @@ int main(int argc, char *argv[]) {
 
 		}
 
+		char buf[1];
+		buf[0] = Endfile;
+		peer_addr_len = sizeof(struct sockaddr_storage);
+		sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
+
 		fclose(f);
 		*shtdown = true;
+		
+		wait(NULL);
 		munmap(recieved, sizeof *recieved);
+		munmap(shtdown, sizeof *shtdown);
+		printf("Mengakhiri koneksi\n");
+		close(sockfd);
 	}
 	
-	printf("Mengakhiri koneksi\n");
-	close(sockfd);
 	
 	return 0;
 }
