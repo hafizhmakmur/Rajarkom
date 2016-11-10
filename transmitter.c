@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 
             i++;
 
-			usleep(20 * 1000);
+			usleep(25 * 1000);
 
 		}
 

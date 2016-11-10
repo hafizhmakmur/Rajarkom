@@ -143,6 +143,7 @@ int main(int argc, char const *argv[])
 			/* Quit on end of file */	
 			if (c == Endfile) {
 				wait(NULL);
+				printf("Mengakhiri program\n");
 				munmap(ptr, sizeof *ptr);
 				munmap(rxq, sizeof *rxq);
 				munmap(send_xon, sizeof *send_xon);
@@ -212,7 +213,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	else{
 
 	//	if((t[0] != Endfile) && 
-		if	((t[0] != CR) && (t[0] != LF)){
+		if (t[0] > 32 || t[0] == CR || t[0] == LF || t[0] == Endfile) {
 			printf("Menerima byte ke-%d\n", *rcvdByte);
 			queue->data[queue->rear] = t[0];
 			queue->count = queue->count + 1;
@@ -223,6 +224,8 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 				queue->rear = 0;
 			}
 			*rcvdByte = *rcvdByte + 1;
+		} else {
+			printf("Menerima illegal character\n");
 		}
 	}
 	
@@ -277,8 +280,7 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 			}
 		}
 	} while (!validchar);
-	
-	
+
 	if((queue->count < MAX_LOWERLIMIT) && (*sent_xonxoff == XOFF)){
 		*sent_xonxoff = XON;
 		*send_xoff = false;
