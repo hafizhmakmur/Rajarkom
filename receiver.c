@@ -69,26 +69,25 @@ int main(int argc, char const *argv[])
 	/* Initialize XON/XOFF flags */
 	
 	/* Create child process */
-	pid_t  pid = fork();
-	if(pid != 0){
-		/*** IF PARENT PROCESS ***/
-		while ( true ) {
-			c = *(rcvchar(sockfd, rxq));
-	
-			/* Quit on end of file */
-	
-			if (c == Endfile) {
-				exit(0);
+	if(accept(sockfd, (struct sockaddr*)&client, (socklen_t*)sizeof(client)) >= 0){
+		pid_t  pid = fork();
+		if(pid != 0){
+			/*** IF PARENT PROCESS ***/
+			while ( true ) {
+				c = *(rcvchar(sockfd, rxq));
+		
+				/* Quit on end of file */	
+				if (c == Endfile) {
+					exit(0);
+				}
 			}
 		}
-	}
-	else{
-	
-		/*** ELSE IF CHILD PROCESS ***/
-	
-		while ( true ) {
-			/* Call q_get */
-			if(accept(sockfd, (struct sockaddr*)&client, (socklen_t*)sizeof(client)) >= 0){
+		else{
+		
+			/*** ELSE IF CHILD PROCESS ***/
+		
+			while ( true ) {
+				/* Call q_get */
 				Byte *coba = q_get(rxq, &c);
 				if(coba != NULL){
 					if(rxq->front > 0){
