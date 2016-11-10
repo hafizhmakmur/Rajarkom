@@ -184,7 +184,7 @@ int main(int argc, char const *argv[])
 				
 			}
 			/* Can introduce some delay here. */
-			usleep(DELAY * 1000);
+			usleep(DELAY * 2000);
 		}
 
 
