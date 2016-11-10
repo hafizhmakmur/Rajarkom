@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <sys/sysinfo.h>
@@ -40,6 +41,12 @@ struct sockaddr_in client, local;
 #define MIN_UPPERLIMIT 4
 #define MAX_LOWERLIMIT 1
 
+
+void error(const char *msg) {
+    perror(msg);
+    exit(0);
+}
+
 int main(int argc, char const *argv[])
 {
 	/* code */
@@ -53,9 +60,13 @@ int main(int argc, char const *argv[])
 		printf("Socket gagal\n");
 		exit(0);
 	}
+
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0)
+		error("setsockopt(SO_REUSEADDR) failed");
+
 	local.sin_family = AF_INET;
 	local.sin_addr.s_addr = htonl(INADDR_ANY);
-	local.sin_port = htons(argv[0]);
+	local.sin_port = htons(atoi(argv[1]));
 	if (bind(sockfd, (struct sockaddr*)&local, sizeof(local)) != 0){
 		printf("Binding gagal\n");
 		exit(0);
@@ -69,9 +80,21 @@ int main(int argc, char const *argv[])
 	/* Initialize XON/XOFF flags */
 	
 	/* Create child process */
-	if(accept(sockfd, (struct sockaddr*)&client, (socklen_t*)sizeof(client)) >= 0){
+	printf("There there\n");
+
+    char buf[256];    
+    while(1) {
+		 
+		// Wait until client connect
+		int clilen = sizeof(client);
+		int newsockfd = accept(sockfd, (struct sockaddr*)&client, &clilen);
+
+		if (newsockfd < 0) error("ERROR on accept");
+	
+		printf("Here I am\n");
 		pid_t  pid = fork();
 		if(pid != 0){
+			printf("Parent here %d\n",pid);
 			/*** IF PARENT PROCESS ***/
 			while ( true ) {
 				c = *(rcvchar(sockfd, rxq));
@@ -81,8 +104,7 @@ int main(int argc, char const *argv[])
 					exit(0);
 				}
 			}
-		}
-		else{
+		} else {
 		
 			/*** ELSE IF CHILD PROCESS ***/
 		
@@ -114,7 +136,9 @@ int main(int argc, char const *argv[])
 				usleep(DELAY * 1000);
 			}
 		}
+		printf("Try again\n");
 	}
+	printf("Game over\n");
 	close(sockfd);
 	return 0;
 }
@@ -130,7 +154,9 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	*/
 	
 	if(!send_xoff){
+		printf("Greetings\n");
 		ssize_t nBytesRcvd = recvfrom(sockfd, t, sizeof(t), 0, (struct sockaddr*)&client, (socklen_t*)sizeof(client));
+		printf("How's there\n");
 		if(nBytesRcvd < 0){
 			printf("recvfrom failed\n");
 		}
@@ -144,6 +170,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 				queue->rear = 0;
 			}
 			rcvdByte = rcvdByte + 1;
+			printf("Pass this\n");
 		}
 		if((t[0] != Endfile) && (t[0] != CR) && (t[0] != LF)){
 			printf("Menerima byte ke-%d\n", rcvdByte);
