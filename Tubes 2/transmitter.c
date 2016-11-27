@@ -21,7 +21,8 @@ void error(const char *msg) {
     exit(0);
 }
 
-int main(int argc, char *argv[]) {
+int sendFrame(int sockfd, char * msg, int length) {
+
 	/* code */
 
 	recieved = mmap(NULL, sizeof *recieved, PROT_READ | PROT_WRITE, 
@@ -35,11 +36,77 @@ int main(int argc, char *argv[]) {
 
 	*shtdown = false;
 
+    struct sockaddr_storage peer_addr;
+    socklen_t peer_addr_len;
+
+	pid_t  pid;
+	pid = fork();
+	
+	if (pid == 0)  {
+		do {
+
+			char ch[1];
+			peer_addr_len = sizeof(struct sockaddr_storage);
+			recvfrom(sockfd,ch,1,0,(struct sockaddr *) &peer_addr, &peer_addr_len);
+			*recieved = ch[0];
+
+			if (*recieved == XOFF) {
+				printf("XOFF diterima\n");
+			} else if (*recieved == XON) {
+				printf("XON diterima\n");
+			}
+		
+		} while (!*shtdown);
+
+		printf("Child finished\n");
+
+	} else {;
+    	char red;
+    	int i = 0;
+
+		while (i < length) {
+			red = msg[i];
+
+			while (*recieved != XON) {
+				printf("Menunggu XON...\n");
+				sleep(1);
+			}
+
+			printf("Mengirim byte ke-%d: '%c'\n",i+1,red);
+			
+			char buf[1];
+			buf[0] = red;
+			peer_addr_len = sizeof(struct sockaddr_storage);
+			sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
+
+			i++;
+			usleep(25 * 1000);
+
+		}
+
+		char buf[1];
+		buf[0] = Endfile;
+		peer_addr_len = sizeof(struct sockaddr_storage);
+		sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
+
+		*shtdown = true;
+		
+		wait(NULL);
+
+		printf("Send finished\n");
+	}
+
+	munmap(recieved, sizeof *recieved);
+	munmap(shtdown, sizeof *shtdown);
+
+	return 0;
+}
+
+int main(int argc, char *argv[]) {
+
 	int sockfd, portno, n;
     struct sockaddr_in serv_addr;
     struct hostent *server;
-    struct sockaddr_storage peer_addr;
-    socklen_t peer_addr_len;
     char buffer[256], filename[256];
 
     if (argc < 4) {
@@ -72,64 +139,32 @@ int main(int argc, char *argv[]) {
     if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
         error("ERROR connecting");
     
-	pid_t  pid;
-	pid = fork();
+
+	FILE *f = fopen(filename,"rb");
+
+	int i = 1;
 	
-	if (pid == 0)  {
-		do {
+	char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
 
-			char ch[1];
-			peer_addr_len = sizeof(struct sockaddr_storage);
-			recvfrom(sockfd,ch,1,0,(struct sockaddr *) &peer_addr, &peer_addr_len);
-			*recieved = ch[0];
+	while ((read = getline(&line, &len, f)) != -1) {
 
-			if (*recieved == XOFF) {
-				printf("XOFF diterima\n");
-			} else if (*recieved == XON) {
-				printf("XON diterima\n");
-			}
-		
-		} while (!*shtdown);
+        printf("Mengirim string ke-%d dengan panjang %d: '%s'\n",i,strlen(line),line);
 
-	} else {;
-    	
-    	FILE *f = fopen(filename,"rb");
+		int sent = sendFrame(sockfd, line, strlen(line));
 
-    	char red;
-    	int i = 1;
-		while (fscanf(f, "%c", &red) != EOF) {
-			while (*recieved != XON) {
-				printf("Menunggu XON...\n");
-				sleep(1);
-			}
+		printf("Kiriman selesai\n");
 
-			printf("Mengirim byte ke-%d: '%c'\n",i,red);
-			
-			char buf[1];
-			buf[0] = red;
-			peer_addr_len = sizeof(struct sockaddr_storage);
-			sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
+		i++;
 
-            i++;
+		usleep(25 * 1000);
+    }
 
-			usleep(25 * 1000);
+	fclose(f);
 
-		}
-
-		char buf[1];
-		buf[0] = Endfile;
-		peer_addr_len = sizeof(struct sockaddr_storage);
-		sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
-
-		fclose(f);
-		*shtdown = true;
-		
-		wait(NULL);
-		munmap(recieved, sizeof *recieved);
-		munmap(shtdown, sizeof *shtdown);
-		printf("Mengakhiri koneksi\n");
-		close(sockfd);
-	}
+	printf("Mengakhiri koneksi\n");
+	close(sockfd);
 	
 	
 	return 0;
