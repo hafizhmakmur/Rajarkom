@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include "dcomm.h"
+#include "SQ-ARQProtocol.h"
 
 /* Delay to adjust speed of consuming buffer, in milliseconds */
 #define DELAY 500
@@ -143,7 +144,7 @@ int main(int argc, char const *argv[])
 			/* Quit on end of file */	
 			if (c == Endfile) {
 				wait(NULL);
-				printf("Mengakhiri program\n");
+				printf("Mengakhiri program %d\n",c);
 				munmap(ptr, sizeof *ptr);
 				munmap(rxq, sizeof *rxq);
 				munmap(send_xon, sizeof *send_xon);
