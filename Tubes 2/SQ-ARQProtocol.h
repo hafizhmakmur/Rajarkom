@@ -25,7 +25,7 @@ typedef struct ACKFormat {
 	Byte checksum;
 } ACKFormat;
 
-Byte getChecksumData(Byte frameno, Byte data[MessageLength]) {
+Byte getChecksumData(Byte frameno, Byte * data) {
 
 	unsigned int sum = 0;
 
@@ -95,7 +95,7 @@ Boolean testChecksumACK(ACKFormat ackf) {
 }
 
 
-FRAME createFrame(Byte frameno, Byte data[MessageLength]) {
+FRAME createFrame(Byte frameno, Byte * data) {
 	
 	FRAME ret;
 

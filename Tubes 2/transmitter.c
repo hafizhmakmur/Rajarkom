@@ -206,10 +206,11 @@ int main(int argc, char *argv[]) {
 
 		// Sending message shorter than MessageLength
 		if (i != 0) {
-			for (int j=i;j<MessageLength;j++) {
-				message[j] = 0;
+			Byte shortMsg[i];
+			for (j=0;j<i;j++) {
+				message[j] = message[i];
 			}
-			sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
+			sendFrame(sockfd,createFrame(1,shortMsg),peer_addr,peer_addr_len);
 		}
 
 		fclose(f);
