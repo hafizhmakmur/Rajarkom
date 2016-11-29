@@ -225,7 +225,8 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 				queue->rear = 0;
 			}
 			*rcvdByte = *rcvdByte + 1;
-		} else {
+		}
+		else if(t[0] <= 32){
 			printf("Menerima illegal character\n");
 		}
 	}
