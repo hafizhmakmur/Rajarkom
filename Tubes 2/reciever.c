@@ -225,16 +225,15 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 				queue->rear = 0;
 			}
 			*rcvdByte = *rcvdByte + 1;
-<<<<<<< HEAD:Tubes 2/reciever.c
 	//	} else {
 	//		printf("Menerima illegal character\n");
 	//	}
-=======
+/*
 		}
 		else if(t[0] <= 32){
 			printf("Menerima illegal character\n");
 		}
->>>>>>> 8f474fd4c154ff600528aa18ca16e3e8d0697b8d:Tubes 2/receiver.c
+*/
 	}
 	
 	if((queue->count > MIN_UPPERLIMIT) && (*sent_xonxoff == XON)){
