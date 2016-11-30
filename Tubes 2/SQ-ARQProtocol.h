@@ -18,7 +18,7 @@ typedef struct FRAME {
 } FRAME;
 
 typedef struct ACKFormat {
-	unsigned int ack;
+	Byte ack;
 	Byte frameno;
 	int checksum;
 } ACKFormat;

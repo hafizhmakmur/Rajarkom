@@ -79,7 +79,7 @@ ACKFormat recvACK(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_
 			i++;
 		}
 	
-	} while (i<3);
+	} while ((i<3) && (!*shtdown));
 
 	// Create stream of byte to struct
 	memcpy(&ack,message,sizeof(message));
@@ -224,7 +224,15 @@ int main(int argc, char *argv[]) {
 			}
 			sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
 		}
-		
+
+		// Mengirim akhir file
+		message[0] = Endfile;
+		int j;
+		for (j=1;j<MessageLength;j++) {
+			message[j] = 0;
+		}
+		sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
+
 		fclose(f);
 		*shtdown = true;
 		
