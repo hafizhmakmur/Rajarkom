@@ -151,30 +151,42 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 
 }
 
+// THE Sliding Window Protocol :D
 void slidingProtocol(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_addr_len, ARQ * listOfFrame, int lastFrame) {
+	// Start semding from frame 0
 	int startFrame = 0;
 
+	// Send until certain frame
 	while (startFrame < lastFrame) {
 		int i;
 		Boolean move = true;
 		int targetFrame = 0;
+		// Sending all in the window
 		for (i=0;i<startFrame+windowSize;i++) {
+			// If it is already ack-ed
 			if (listOfFrame[i].ack) {
+				// If there is no NAK behind
 				if (move) {
+					// Move the window
 					targetFrame = i;
 				}
 			} else {
 				move = false;
 				targetFrame = i;
+				// If timeout
 				if (listOfFrame[i].untilTimeout == 0) {
+					// Reset timeout
 					listOfFrame[i].untilTimeout = timeout;
+					// Send frame
 					sendFrame(sockfd, listOfFrame[i].frame, peer_addr, peer_addr_len);
 				} else {
+					// Decrease timeout
 					listOfFrame[i].untilTimeout--;
 				}
 			}
 		}
 
+		// Move window for real
 		startFrame = targetFrame;
 
 		usleep(1 * 1000);
@@ -241,6 +253,7 @@ int main(int argc, char *argv[]) {
 					ptr[recv.frameno].ack = true;
 				} else {
 					printf("Pesan tidak sampai\n");
+					ptr[recv.frameno].untilTimeout = 0;
 				}
 			} else {
 				printf("ACK corrupted\n");
