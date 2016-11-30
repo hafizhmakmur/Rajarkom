@@ -13,13 +13,36 @@
 #include "dcomm.h"
 #include "SQ-ARQProtocol.h"
 
+#define maxFrame 	500
+#define windowSize 	5
+#define timeout 	5
+
+typedef struct ARQ {
+	FRAME frame;
+	int untilTimeout;
+	Boolean ack;
+} ARQ;
+
 static Byte *recieved;
 Boolean *shtdown;
+ARQ listFrame[maxFrame];
 
 // Error message
 void error(const char *msg) {
     perror(msg);
     exit(0);
+}
+
+ARQ createARQ(FRAME frame) {
+	
+	ARQ ret;
+
+	ret.frame = frame;
+	ret.untilTimeout = 0;
+	ret.ack = false;
+
+	return ret;
+
 }
 
 // Binding to a socket
@@ -128,7 +151,37 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 
 }
 
+void slidingProtocol(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_addr_len, ARQ * listOfFrame, int lastFrame) {
+	int startFrame = 0;
 
+	while (startFrame < lastFrame) {
+		int i;
+		Boolean move = true;
+		int targetFrame = 0;
+		for (i=0;i<startFrame+windowSize;i++) {
+			if (listOfFrame[i].ack) {
+				if (move) {
+					targetFrame = i;
+				}
+			} else {
+				move = false;
+				targetFrame = i;
+				if (listOfFrame[i].untilTimeout == 0) {
+					listOfFrame[i].untilTimeout = timeout;
+					sendFrame(sockfd, listOfFrame[i].frame, peer_addr, peer_addr_len);
+				} else {
+					listOfFrame[i].untilTimeout--;
+				}
+			}
+		}
+
+		startFrame = targetFrame;
+
+		usleep(1 * 1000);
+
+	}
+
+}
 
 int main(int argc, char *argv[]) {
 
@@ -145,6 +198,16 @@ int main(int argc, char *argv[]) {
                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	*shtdown = false;
+
+
+	ARQ *ptr = mmap(0, maxFrame, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS,  -1, 0);
+
+	int j;
+	for (j = 0; j < maxFrame; ++j)
+	{
+	    ptr[j] = listFrame[j];
+	}
 
 	// Argument validation
     if (argc < 4) {
@@ -175,6 +238,7 @@ int main(int argc, char *argv[]) {
 			if (testChecksumACK(recv)) {
 				if (recv.ack == ACK) {
 					printf("Pesan terkirim\n");
+					ptr[recv.frameno].ack = true;
 				} else {
 					printf("Pesan tidak sampai\n");
 				}
@@ -199,19 +263,17 @@ int main(int argc, char *argv[]) {
     	int i = 0;
     	Byte message[MessageLength];
 
-    	// Framing message per MessageLength and sending it
+    	int indexFrame = 0;
+
+    	// Framing message per MessageLength and create array of frame
 		while (fscanf(f, "%c", &red) != EOF) {
 			if (i < MessageLength) {
 				message[i] = red;
 				i++;
 			} else {
-				int k;
-				printf("Kirimkan ");
-				for (k=0;k<MessageLength;k++) {
-					printf("%d ",message[k]);
-				}
-				printf("\n");
-				sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
+//				sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
+				ptr[indexFrame] = createARQ(createFrame(indexFrame,message));
+				indexFrame++;
 				i = 0;
 			}
 		}
@@ -222,7 +284,9 @@ int main(int argc, char *argv[]) {
 			for (j=i;j<MessageLength;j++) {
 				message[j] = 0;
 			}
-			sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
+//			sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
+			ptr[indexFrame] = createARQ(createFrame(indexFrame,message));
+			indexFrame++;
 		}
 
 		// Mengirim akhir file
@@ -231,9 +295,14 @@ int main(int argc, char *argv[]) {
 		for (j=1;j<MessageLength;j++) {
 			message[j] = 0;
 		}
-		sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
+//		sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
+		ptr[indexFrame] = createARQ(createFrame(indexFrame,message));
+		indexFrame++;
 
 		fclose(f);
+
+		slidingProtocol(sockfd,peer_addr,peer_addr_len,ptr,indexFrame);
+
 		*shtdown = true;
 		
 		wait(NULL);
