@@ -8,24 +8,22 @@
 
 #define MessageLength 	16		/* Maximum length of message per frame */
 
-int frameLength = 5 + MessageLength;
-
 typedef struct FRAME {
-	unsigned int soh;
+	Byte soh;
 	Byte frameno;
-	unsigned int stx;
-	Byte * data;
-	unsigned int etx;
-	Byte checksum;
+	Byte stx;
+	Byte data[MessageLength];
+	Byte etx;
+	int checksum;
 } FRAME;
 
 typedef struct ACKFormat {
 	unsigned int ack;
 	Byte frameno;
-	Byte checksum;
+	int checksum;
 } ACKFormat;
 
-Byte getChecksumData(Byte frameno, Byte * data) {
+int getChecksumData(Byte frameno, Byte data[MessageLength]) {
 
 	unsigned int sum = 0;
 
@@ -70,7 +68,7 @@ Boolean testChecksumData(FRAME frame) {
 }
 
 
-Byte getChecksumACK(Byte frameno, unsigned int ack) {
+int getChecksumACK(Byte frameno, unsigned int ack) {
 
 	unsigned int sum = 0;
 
@@ -95,7 +93,7 @@ Boolean testChecksumACK(ACKFormat ackf) {
 }
 
 
-FRAME createFrame(Byte frameno, Byte * data) {
+FRAME createFrame(Byte frameno, Byte data[MessageLength]) {
 	
 	FRAME ret;
 
@@ -105,7 +103,14 @@ FRAME createFrame(Byte frameno, Byte * data) {
 
 	ret.stx = STX;
 
-	ret.data = data;
+	int i;
+	printf("Terima ");
+	for (i=0;i<MessageLength;i++) {
+		printf("%d ",data[i]);
+	}
+	printf("\n");
+
+	memcpy(&ret.data,data,MessageLength);
 
 	ret.etx = ETX;
 

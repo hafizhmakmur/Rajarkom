@@ -98,6 +98,11 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 	Byte msg[sizeof(frame)];
 	memcpy(msg, &frame, sizeof(frame));
 
+	for (i=0;i<sizeof(frame);i++) {
+		printf("%d ",msg[i]);
+	}
+
+	i=0;
 	// Sending message byte per byte
 	while (i < MessageLength) {
 		red = msg[i];
@@ -118,12 +123,9 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 		usleep(25 * 1000);
 
 	}
-
-	*shtdown = true;
 	
 	printf("Send finished\n");
 
-	wait(NULL);
 }
 
 
@@ -166,17 +168,21 @@ int main(int argc, char *argv[]) {
 		
 		// Child process for receiving ack
 
-		ACKFormat recv = recvACK(sockfd,peer_addr,peer_addr_len);
+		int j = 0;
+		do {
+			ACKFormat recv = recvACK(sockfd,peer_addr,peer_addr_len);
 
-		if (testChecksumACK(recv)) {
-			if (recv.ack == ACK) {
-				printf("Pesan terkirim\n");
+			if (testChecksumACK(recv)) {
+				if (recv.ack == ACK) {
+					printf("Pesan terkirim\n");
+				} else {
+					printf("Pesan tidak sampai\n");
+				}
 			} else {
-				printf("Pesan tidak sampai\n");
+				printf("ACK corrupted\n");
 			}
-		} else {
-			printf("ACK corrupted\n");
-		}
+			j++;
+		} while ((!*shtdown) && (j < 20));
 
 		printf("Child finished\n");
 
@@ -197,22 +203,28 @@ int main(int argc, char *argv[]) {
 		while (fscanf(f, "%c", &red) != EOF) {
 			if (i < MessageLength) {
 				message[i] = red;
+				i++;
 			} else {
+				int k;
+				printf("Kirimkan ");
+				for (k=0;k<MessageLength;k++) {
+					printf("%d ",message[k]);
+				}
+				printf("\n");
 				sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
 				i = 0;
 			}
-			i++;
 		}
 
 		// Sending message shorter than MessageLength
 		if (i != 0) {
-			Byte shortMsg[i];
-			for (j=0;j<i;j++) {
-				message[j] = message[i];
+			int j;
+			for (j=i;j<MessageLength;j++) {
+				message[j] = 0;
 			}
-			sendFrame(sockfd,createFrame(1,shortMsg),peer_addr,peer_addr_len);
+			sendFrame(sockfd,createFrame(1,message),peer_addr,peer_addr_len);
 		}
-
+		
 		fclose(f);
 		*shtdown = true;
 		

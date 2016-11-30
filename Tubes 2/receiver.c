@@ -214,7 +214,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	else{
 
 	//	if((t[0] != Endfile) && 
-		if (t[0] > 32 || t[0] == CR || t[0] == LF || t[0] == Endfile) {
+	//	if (t[0] > 32 || t[0] == CR || t[0] == LF || t[0] == Endfile) {
 			printf("Menerima byte ke-%d\n", *rcvdByte);
 			queue->data[queue->rear] = t[0];
 			queue->count = queue->count + 1;
@@ -225,10 +225,16 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 				queue->rear = 0;
 			}
 			*rcvdByte = *rcvdByte + 1;
+<<<<<<< HEAD:Tubes 2/reciever.c
+	//	} else {
+	//		printf("Menerima illegal character\n");
+	//	}
+=======
 		}
 		else if(t[0] <= 32){
 			printf("Menerima illegal character\n");
 		}
+>>>>>>> 8f474fd4c154ff600528aa18ca16e3e8d0697b8d:Tubes 2/receiver.c
 	}
 	
 	if((queue->count > MIN_UPPERLIMIT) && (*sent_xonxoff == XON)){
@@ -277,9 +283,9 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 				queue->front = 0;
 			}
 			
-			if (*data > 32 || *data == CR || *data == LF || *data == Endfile) {
+//			if (*data > 32 || *data == CR || *data == LF || *data == Endfile) {
 				validchar = true;
-			}
+//			}
 		}
 	} while (!validchar);
 
