@@ -35,8 +35,8 @@ int *rcvdByte = 0;
 int *cnsmByte = 0;
 struct sockaddr_in client, local;
 
-#define MIN_UPPERLIMIT 4
-#define MAX_LOWERLIMIT 1
+#define MIN_UPPERLIMIT 24
+#define MAX_LOWERLIMIT 0
 
 
 void error(const char *msg) {
@@ -155,8 +155,6 @@ int main(int argc, char const *argv[])
 				exit(0);
 			}
 		}
-
-
 		munmap(rxq, sizeof *rxq);
 	} else {
 	
@@ -187,8 +185,6 @@ int main(int argc, char const *argv[])
 			/* Can introduce some delay here. */
 			usleep(DELAY * 2000);
 		}
-
-
 	}
 	close(sockfd);
 	return 0;
@@ -218,7 +214,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 			printf("Menerima byte ke-%d\n", *rcvdByte);
 			queue->data[queue->rear] = t[0];
 			queue->count = queue->count + 1;
-			if(queue->rear < 7){
+			if(queue->rear < 23){
 				queue->rear = queue->rear + 1;
 			}
 			else{
@@ -303,4 +299,21 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 	}
 
 	return data;
+}
+
+void SendACK (Byte ack, Byte Frameno, int Checksum){
+	ACKFormat ackmsg;
+	ackmsg.ack = ack;
+	ackmsg.frameno = Frameno;
+	ackmsg.checksum = Checksum;
+	ssize_t nACKSnt = sendto(sockfd, ackmsg, sizeof(ackmsg), 4, (struct sockaddr*)&client, sizeof(client));
+	if(ack == ACK){
+		printf("Mengirim ACK Frame No. %d\n", Frameno);
+	}
+	else{
+		printf("Mengirim NAK Frame No. %d\n", Frameno);
+	}
+	if(nACKSnt <0){
+		printf("sendto failed\n");
+	}
 }
