@@ -8,6 +8,10 @@
 
 #define MessageLength 	16		/* Maximum length of message per frame */
 
+#define maxFrame 	500
+#define windowSize 	5
+#define timeout 	5
+
 typedef struct FRAME {
 	Byte soh;
 	Byte frameno;

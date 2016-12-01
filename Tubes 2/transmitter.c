@@ -13,10 +13,6 @@
 #include "dcomm.h"
 #include "SQ-ARQProtocol.h"
 
-#define maxFrame 	500
-#define windowSize 	5
-#define timeout 	5
-
 typedef struct ARQ {
 	FRAME frame;
 	int untilTimeout;

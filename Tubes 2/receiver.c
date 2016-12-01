@@ -33,18 +33,22 @@ static Byte *q_get(int sockfd, QTYPE *, Byte *);
 Byte t[2];
 int *rcvdByte = 0;
 int *cnsmByte = 0;
+int FrameNo = 0;
 struct sockaddr_in client, local;
 typedef struct CaFrame{
-	char data[sizeof(FRAME)];
+	char data[MessageLength+8];
 	int LastIdx;
 } CaFrame;
 
 CaFrame Seed;
+Seed.LastIdx=-1;
 FRAME f;
+FRAME FrameList[maxFrame]
+Boolean Finish = false;
 
 /*define Limits*/
-#define MIN_UPPERLIMIT MessageLength+8
-#define MAX_LOWERLIMIT 0
+#define MIN_UPPERLIMIT 4
+#define MAX_LOWERLIMIT 1
 
 
 void error(const char *msg) {
@@ -147,10 +151,10 @@ int main(int argc, char const *argv[])
 		/*** IF PARENT PROCESS ***/
 		while ( true ) {
 			char * s = rcvchar(newsockfd, rxq);
-			if (s != NULL) c = *s;
+			//if (s != NULL) c = *s;
 	
 			/* Quit on end of file */	
-			if (c == Endfile) {
+			if (Finish) {
 				wait(NULL);
 				printf("Mengakhiri program %d\n",c);
 				munmap(ptr, sizeof *ptr);
@@ -174,6 +178,8 @@ int main(int argc, char const *argv[])
 				if(rxq->front > 0){
 					if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
 						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++*cnsmByte, rxq->data[rxq->front - 1]);
+						Seed->data[Seed->LastIdx + 1] = rxq->data[rxq->front -1];
+						Seed->LastIdx++;
 					}
 					else if(rxq->data[rxq->front - 1] == Endfile){
 						//do nothing
@@ -183,10 +189,32 @@ int main(int argc, char const *argv[])
 				else{
 					if((rxq->data[7] != Endfile) && (rxq->data[7] != CR) && (rxq->data[7] != LF)){
 						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++*cnsmByte, rxq->data[7]);
+						Seed->data[Seed->LastIdx + 1] = rxq->data[7];
+						Seed->LastIdx++;
 					}
 					else if(rxq->data[7] == Endfile){
 						exit(0);
 					}
+				}
+				if(Seed->LastIdx == 23){
+					if((Seed->data[0] != SOH) && (Seed->data[2] != STX) && (Seed->data[MessageLength+3] != ETX)){
+						memcpy(f, Seed->data, sizeof(Seed->data));
+						if(testChecksumData(f)){
+							SendACK(ACK, f.frameno);
+							printf("Frame Nomor %d: ", FrameNo);
+							for(int j = 0; j < MessageLength; j++){
+								printf("%c ", f.data[j]);
+							}
+							printf("\n");
+						}
+						else{
+							SendACK(NAK, f.frameno);
+						}
+					}
+					else{
+						SendACK(NAK, Seed->data[1]);
+					}
+					Seed->LastIdx = -1;
 				}
 				
 			}
@@ -196,6 +224,16 @@ int main(int argc, char const *argv[])
 	}
 	close(sockfd);
 	return 0;
+}
+
+Boolean IsLastFrame(FRAME fr){
+	Boolean LastFrame = false;
+	for(int i = 0; i<MessageLength; i++){
+		if(fr.data[i] == EndFile){
+			LastFrame = true;
+		}
+	}
+	return LastFrame;
 }
 
 static Byte *rcvchar(int sockfd, QTYPE *queue) {
@@ -313,11 +351,11 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 	return data;
 }
 
-void SendACK (Byte ack, Byte Frameno, int Checksum){
+void SendACK (Byte ack, Byte Frameno){
 	ACKFormat ackmsg;
 	ackmsg.ack = ack;
 	ackmsg.frameno = Frameno;
-	ackmsg.checksum = Checksum;
+	ackmsg.checksum = getChecksumACK(Frameno, ack);
 	ssize_t nACKSnt = sendto(sockfd, ackmsg, sizeof(ackmsg), 0, (struct sockaddr*)&client, sizeof(client));
 	if(ack == ACK){
 		printf("Mengirim ACK Frame No. %d\n", Frameno);
