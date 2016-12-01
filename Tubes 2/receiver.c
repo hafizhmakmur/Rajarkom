@@ -41,9 +41,8 @@ typedef struct CaFrame{
 } CaFrame;
 
 CaFrame Seed;
-Seed.LastIdx=-1;
 FRAME f;
-FRAME FrameList[maxFrame]
+FRAME FrameList[maxFrame];
 Boolean Finish = false;
 
 /*define Limits*/
@@ -145,7 +144,8 @@ int main(int argc, char const *argv[])
 	int newsockfd = accept(sockfd, (struct sockaddr*)&client, &clilen);
 
 	if (newsockfd < 0) error("ERROR on accept");
-
+	
+	Seed.LastIdx = -1;
 	pid_t  pid = fork();
 	if(pid != 0){
 		/*** IF PARENT PROCESS ***/
@@ -178,8 +178,8 @@ int main(int argc, char const *argv[])
 				if(rxq->front > 0){
 					if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
 						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++*cnsmByte, rxq->data[rxq->front - 1]);
-						Seed->data[Seed->LastIdx + 1] = rxq->data[rxq->front -1];
-						Seed->LastIdx++;
+						Seed.data[Seed.LastIdx + 1] = rxq->data[rxq->front -1];
+						Seed.LastIdx++;
 					}
 					else if(rxq->data[rxq->front - 1] == Endfile){
 						//do nothing
@@ -189,32 +189,37 @@ int main(int argc, char const *argv[])
 				else{
 					if((rxq->data[7] != Endfile) && (rxq->data[7] != CR) && (rxq->data[7] != LF)){
 						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++*cnsmByte, rxq->data[7]);
-						Seed->data[Seed->LastIdx + 1] = rxq->data[7];
-						Seed->LastIdx++;
+						Seed.data[Seed.LastIdx + 1] = rxq->data[7];
+						Seed.LastIdx++;
 					}
 					else if(rxq->data[7] == Endfile){
 						exit(0);
 					}
 				}
-				if(Seed->LastIdx == 23){
-					if((Seed->data[0] != SOH) && (Seed->data[2] != STX) && (Seed->data[MessageLength+3] != ETX)){
-						memcpy(f, Seed->data, sizeof(Seed->data));
+				if(Seed.LastIdx == 23){
+					if((Seed.data[0] != SOH) && (Seed.data[2] != STX) && (Seed.data[MessageLength+3] != ETX)){
+						memcpy(f, Seed.data, sizeof(Seed.data));
 						if(testChecksumData(f)){
-							SendACK(ACK, f.frameno);
-							printf("Frame Nomor %d: ", FrameNo);
+							SendACK(ACK, f.frameno+1);
+							printf("Frame Nomor %d: ", f.frameno);
 							for(int j = 0; j < MessageLength; j++){
-								printf("%c ", f.data[j]);
+								if(f.data[j] != NULL){
+									printf("%c ", f.data[j]);
+								}
 							}
 							printf("\n");
 						}
 						else{
-							SendACK(NAK, f.frameno);
+							SendACK(NAK, f.frameno+1);
 						}
 					}
 					else{
 						SendACK(NAK, Seed->data[1]);
 					}
 					Seed->LastIdx = -1;
+					if(IsLastFrame(f)){
+						Finish = true;
+					}
 				}
 				
 			}
