@@ -55,6 +55,16 @@ void error(const char *msg) {
     exit(0);
 }
 
+Boolean IsLastFrame(FRAME fr){
+	Boolean LastFrame = false;
+	for(int i = 0; i<MessageLength; i++){
+		if(fr.data[i] == Endfile){
+			LastFrame = true;
+		}
+	}
+	return LastFrame;
+}
+
 int main(int argc, char const *argv[])
 {
 	/* code */
@@ -214,9 +224,9 @@ int main(int argc, char const *argv[])
 						}
 					}
 					else{
-						SendACK(NAK, Seed->data[1]);
+						SendACK(NAK, Seed.data[1]);
 					}
-					Seed->LastIdx = -1;
+					Seed.LastIdx = -1;
 					if(IsLastFrame(f)){
 						Finish = true;
 					}
@@ -231,15 +241,7 @@ int main(int argc, char const *argv[])
 	return 0;
 }
 
-Boolean IsLastFrame(FRAME fr){
-	Boolean LastFrame = false;
-	for(int i = 0; i<MessageLength; i++){
-		if(fr.data[i] == EndFile){
-			LastFrame = true;
-		}
-	}
-	return LastFrame;
-}
+
 
 static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	/*
