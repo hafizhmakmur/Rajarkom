@@ -65,6 +65,34 @@ Boolean IsLastFrame(FRAME fr){
 	return LastFrame;
 }
 
+
+void SendACK (int sockfd, Byte ack, Byte Frameno){
+	ACKFormat ackmsg;
+	ackmsg.ack = ack;
+	ackmsg.frameno = Frameno;
+	ackmsg.checksum = getChecksumACK(Frameno, ack);
+	Byte buf[sizeof(ackmsg)];
+	memcpy(buf, &ackmsg, sizeof(ackmsg));
+	int i = 0;
+	while (i < sizeof(ackmsg)){
+		char test[1];
+		test[0] = buf[i];
+		ssize_t nACKSnt = sendto(sockfd, test, sizeof(test), 0, (struct sockaddr*)&client, sizeof(client));
+		if(nACKSnt <0){
+			printf("ACK sendto failed\n");
+		}
+		i++;
+	}
+	printf("Besar ACK adalah %d %d %d\n",i,sizeof(ackmsg),ackmsg.checksum);
+	if(ack == ACK){
+		printf("Mengirim ACK Frame No. %d\n", Frameno);
+	}
+	else{
+		printf("Mengirim NAK Frame No. %d\n", Frameno);
+	}
+	
+}
+
 int main(int argc, char const *argv[])
 {
 	/* code */
@@ -306,7 +334,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 		ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&client, sizeof(client));
 		printf("Mengirim XOFF\n");
 		if(nBytesSnt < 0){
-			printf("sendto failed\n");
+			printf("XOFF sendto failed\n");
 		}
 	}
 
@@ -358,33 +386,10 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 		ssize_t nBytesSnt = sendto(sockfd, test, sizeof(test), 4, (struct sockaddr*)&client, sizeof(client));
 		printf("Mengirim XON\n");
 		if(nBytesSnt < 0){
-			printf("sendto failed\n");
+			printf("XON sendto failed\n");
 		}
 	}
 
 	return data;
 }
 
-void SendACK (int sockfd, Byte ack, Byte Frameno){
-	ACKFormat ackmsg;
-	ackmsg.ack = ack;
-	ackmsg.frameno = Frameno;
-	ackmsg.checksum = getChecksumACK(Frameno, ack);
-	char buf[sizeof(ackmsg)];
-	memcpy(buf, &ackmsg, sizeof(ackmsg));
-	int i = 0;
-	while (i < sizeof(ackmsg)){
-		ssize_t nACKSnt = sendto(sockfd, buf[i], 1, 0, (struct sockaddr*)&client, (struct socklen_t*) sizeof(client));
-		if(nACKSnt <0){
-		printf("sendto failed\n");
-	}
-		i++;
-	}
-	if(ack == ACK){
-		printf("Mengirim ACK Frame No. %d\n", Frameno);
-	}
-	else{
-		printf("Mengirim NAK Frame No. %d\n", Frameno);
-	}
-	
-}

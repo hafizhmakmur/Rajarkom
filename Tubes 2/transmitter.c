@@ -79,7 +79,7 @@ int initConnecton(int argc, char *argv[]) {
 ACKFormat recvACK(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_addr_len) {
 
     ACKFormat ack;
-    Byte message[6];
+    Byte message[sizeof(ACKFormat)];
 
     int i = 0;
 	do {
@@ -88,6 +88,7 @@ ACKFormat recvACK(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_
 		peer_addr_len = sizeof(struct sockaddr_storage);
 		recvfrom(sockfd,ch,1,0,(struct sockaddr *) &peer_addr, &peer_addr_len);
 		*recieved = ch[0];
+		printf("Terima ini %d\n",*recieved);
 
 		if (*recieved == XOFF) {
 			printf("XOFF diterima\n");
@@ -98,7 +99,7 @@ ACKFormat recvACK(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_
 			i++;
 		}
 	
-	} while ((i<6) && (!*shtdown));
+	} while ((i<sizeof(ACKFormat)) && (!*shtdown));
 
 	// Create stream of byte to struct
 	memcpy(&ack,message,sizeof(message));
@@ -112,6 +113,7 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 	// Variable declaration
 	char red;
 	int i = 0;
+	Boolean isXOFF = false;
 
 	// Create stream of byte from a frame
 	Byte msg[sizeof(frame)];
@@ -120,15 +122,28 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 	for (i=0;i<sizeof(frame);i++) {
 		printf("%d ",msg[i]);
 	}
+	printf("\n");
 
 	i=0;
 	// Sending message byte per byte
-	while (i < MessageLength) {
+	while (i < sizeof(frame)) {
 		red = msg[i];
 
-		while (*recieved != XON) {
-			printf("Menunggu XON...\n");
+		if (*recieved == XOFF) {
+			isXOFF = true;
+		}
+		if (*recieved == XON) {
+			isXOFF = false;
+		}
+		while (isXOFF) {
+			printf("Menunggu XON... %d\n",*recieved);
 			sleep(1);
+			if (*recieved == XOFF) {
+				isXOFF = true;
+			}
+			if (*recieved == XON) {
+				isXOFF = false;
+			}
 		}
 
 		printf("Mengirim byte ke-%d: %c,'%d'\n",i+1,red,red);
@@ -158,7 +173,7 @@ void slidingProtocol(int sockfd, struct sockaddr_storage peer_addr, socklen_t pe
 		Boolean move = true;
 		int targetFrame = 0;
 		// Sending all in the window
-		for (i=0;i<startFrame+windowSize;i++) {
+		for (i=0;i<startFrame+windowSize&&i<lastFrame;i++) {
 			// If it is already ack-ed
 			if (listOfFrame[i].ack) {
 				// If there is no NAK behind
@@ -196,19 +211,7 @@ int main(int argc, char *argv[]) {
     /* code */
 
 	// Global variables through multiple processes
-	recieved = mmap(NULL, sizeof *recieved, PROT_READ | PROT_WRITE, 
-                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-
-	*recieved = XON;
-
-
-	shtdown = mmap(NULL, sizeof *shtdown, PROT_READ | PROT_WRITE, 
-                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-
-	*shtdown = false;
-
-
-	ARQ *ptr = mmap(0, maxFrame, PROT_READ | PROT_WRITE, 
+	ARQ *ptr = mmap(0, maxFrame*sizeof(ARQ), PROT_READ | PROT_WRITE, 
                     MAP_SHARED | MAP_ANONYMOUS,  -1, 0);
 
 	int j;
@@ -216,6 +219,18 @@ int main(int argc, char *argv[]) {
 	{
 	    ptr[j] = listFrame[j];
 	}
+
+	recieved = mmap(NULL, sizeof *recieved, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*recieved = XON;
+
+//	printf("Tadinya %d\n",*recieved);
+
+	shtdown = mmap(NULL, sizeof *shtdown, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*shtdown = false;
 
 	// Argument validation
     if (argc < 4) {
@@ -246,7 +261,7 @@ int main(int argc, char *argv[]) {
 			if (testChecksumACK(recv)) {
 				if (recv.ack == ACK) {
 					printf("Pesan terkirim\n");
-					ptr[recv.frameno].ack = true;
+					ptr[recv.frameno-1].ack = true;
 				} else {
 					printf("Pesan tidak sampai\n");
 					ptr[recv.frameno].untilTimeout = 0;

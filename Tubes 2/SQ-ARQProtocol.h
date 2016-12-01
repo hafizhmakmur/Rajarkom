@@ -67,7 +67,7 @@ Boolean testChecksumData(FRAME frame) {
 
 	sum += frame.etx;
 
-	return (sum+frame.checksum) == 0;
+	return ~(sum+frame.checksum) == 0;
 
 }
 
@@ -92,7 +92,9 @@ Boolean testChecksumACK(ACKFormat ackf) {
 	
 	sum += ackf.ack;
 
-	return (sum+ackf.checksum) == 0;
+	printf("Yang didapat %d %d\n",sum,ackf.checksum);
+
+	return ~(sum+ackf.checksum) == 0;
 
 }
 
