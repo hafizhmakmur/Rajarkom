@@ -34,8 +34,16 @@ Byte t[2];
 int *rcvdByte = 0;
 int *cnsmByte = 0;
 struct sockaddr_in client, local;
+typedef struct CaFrame{
+	char data[sizeof(FRAME)];
+	int LastIdx;
+} CaFrame;
 
-#define MIN_UPPERLIMIT 24
+CaFrame Seed;
+FRAME f;
+
+/*define Limits*/
+#define MIN_UPPERLIMIT MessageLength+8
 #define MAX_LOWERLIMIT 0
 
 
@@ -190,41 +198,6 @@ int main(int argc, char const *argv[])
 	return 0;
 }
 
-FRAME MakeFrame (QTYPE queue){
-	FRAME newFrame;
-	if(queue->data[0] == SOH){
-		newFrame.soh = SOH;
-		newFrame.frameno = queue[1];
-		newFrame.stx = STX;
-		char msg[MessageLength];
-		int i = 0;
-		Boolean Error = false;
-		while ((queue->data[2+i] != ETX) && (!Error)){
-			if(queue->data[2+i] == 0){
-				Error = true;
-				return NULL;
-			}
-			else{
-				msg[i] = queue->data[2+i];
-				i++;
-			}
-		}
-		if(queue->data[2+i] == ETX){
-			for(int j = 0; j<MessageLength; j++){
-				newFrame.data[j] = msg[j];
-			}
-		}
-		Byte cs[4];
-		for(int j=0; i+j+3 <= queue->rear; j++){
-			cs[j] = queue->data[i+j+3];
-		}
-		newFrame.checksum = *(int *)cs;		
-	}
-	else{
-		return NULL;
-	}
-}
-
 static Byte *rcvchar(int sockfd, QTYPE *queue) {
 	/*
 	Insert code here.
@@ -246,17 +219,20 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 
 	//	if((t[0] != Endfile) && 
 	//	if (t[0] > 32 || t[0] == CR || t[0] == LF || t[0] == Endfile) {
-		if
+			
 			printf("Menerima byte ke-%d\n", *rcvdByte);
+				
 			queue->data[queue->rear] = t[0];
 			queue->count = queue->count + 1;
-			if(queue->rear < 23){
+			
+			if(queue->rear < 24){
 				queue->rear = queue->rear + 1;
 			}
 			else{
 				queue->rear = 0;
 			}
 			*rcvdByte = *rcvdByte + 1;
+			
 	//	} else {
 	//		printf("Menerima illegal character\n");
 	//	}
@@ -342,7 +318,7 @@ void SendACK (Byte ack, Byte Frameno, int Checksum){
 	ackmsg.ack = ack;
 	ackmsg.frameno = Frameno;
 	ackmsg.checksum = Checksum;
-	ssize_t nACKSnt = sendto(sockfd, ackmsg, sizeof(ackmsg), 4, (struct sockaddr*)&client, sizeof(client));
+	ssize_t nACKSnt = sendto(sockfd, ackmsg, sizeof(ackmsg), 0, (struct sockaddr*)&client, sizeof(client));
 	if(ack == ACK){
 		printf("Mengirim ACK Frame No. %d\n", Frameno);
 	}

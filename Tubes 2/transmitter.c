@@ -83,7 +83,7 @@ int initConnecton(int argc, char *argv[]) {
 ACKFormat recvACK(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_addr_len) {
 
     ACKFormat ack;
-    Byte message[3];
+    Byte message[6];
 
     int i = 0;
 	do {
@@ -102,7 +102,7 @@ ACKFormat recvACK(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_
 			i++;
 		}
 	
-	} while ((i<3) && (!*shtdown));
+	} while ((i<6) && (!*shtdown));
 
 	// Create stream of byte to struct
 	memcpy(&ack,message,sizeof(message));
