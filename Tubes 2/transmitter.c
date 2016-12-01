@@ -136,7 +136,7 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 			isXOFF = false;
 		}
 		while (isXOFF) {
-			printf("Menunggu XON... %d\n",*recieved);
+			printf("Menunggu XON...\n");
 			sleep(1);
 			if (*recieved == XOFF) {
 				isXOFF = true;
