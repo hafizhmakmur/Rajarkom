@@ -147,8 +147,6 @@ int main(int argc, char const *argv[])
 	
 	/* Create child process */
 
-    char buf[256];    
-
 	// Wait until client connect
 	int clilen = sizeof(client);
 	int newsockfd = accept(sockfd, (struct sockaddr*)&client, &clilen);
@@ -207,10 +205,19 @@ int main(int argc, char const *argv[])
 					}
 				}
 				if(Seed.LastIdx == 23){
-					if((Seed.data[0] != SOH) && (Seed.data[2] != STX) && (Seed.data[MessageLength+3] != ETX)){
-						memcpy(f, Seed.data, sizeof(Seed.data));
+					if((Seed.data[0] == SOH) && (Seed.data[2] == STX) && (Seed.data[MessageLength+3] == ETX)){
+						f.soh = Seed.data[0];
+						f.frameno = Seed.data[1];
+						f.stx = Seed.data[2];
+						int idx = 0;
+						while (idx < MessageLength){
+							f.data[idx] = Seed.data[idx+3];
+							idx++;
+						}
+						f.etx = Seed.data[MessageLength+3];
+						
 						if(testChecksumData(f)){
-							SendACK(ACK, f.frameno+1);
+							SendACK(newsockfd, ACK, f.frameno+1);
 							printf("Frame Nomor %d: ", f.frameno);
 							for(int j = 0; j < MessageLength; j++){
 								if(f.data[j] != NULL){
@@ -220,11 +227,11 @@ int main(int argc, char const *argv[])
 							printf("\n");
 						}
 						else{
-							SendACK(NAK, f.frameno+1);
+							SendACK(newsockfd, NAK, f.frameno+1);
 						}
 					}
 					else{
-						SendACK(NAK, Seed.data[1]);
+						SendACK(newsockfd, NAK, Seed.data[1]);
 					}
 					Seed.LastIdx = -1;
 					if(IsLastFrame(f)){
@@ -358,19 +365,26 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 	return data;
 }
 
-void SendACK (Byte ack, Byte Frameno){
+void SendACK (int sockfd, Byte ack, Byte Frameno){
 	ACKFormat ackmsg;
 	ackmsg.ack = ack;
 	ackmsg.frameno = Frameno;
 	ackmsg.checksum = getChecksumACK(Frameno, ack);
-	ssize_t nACKSnt = sendto(sockfd, ackmsg, sizeof(ackmsg), 0, (struct sockaddr*)&client, sizeof(client));
+	char buf[sizeof(ackmsg)];
+	memcpy(buf, &ackmsg, sizeof(ackmsg));
+	int i = 0;
+	while (i < sizeof(ackmsg)){
+		ssize_t nACKSnt = sendto(sockfd, buf[i], 1, 0, (struct sockaddr*)&client, (struct socklen_t*) sizeof(client));
+		if(nACKSnt <0){
+		printf("sendto failed\n");
+	}
+		i++;
+	}
 	if(ack == ACK){
 		printf("Mengirim ACK Frame No. %d\n", Frameno);
 	}
 	else{
 		printf("Mengirim NAK Frame No. %d\n", Frameno);
 	}
-	if(nACKSnt <0){
-		printf("sendto failed\n");
-	}
+	
 }
