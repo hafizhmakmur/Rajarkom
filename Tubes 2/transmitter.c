@@ -179,18 +179,20 @@ void slidingProtocol(int sockfd, struct sockaddr_storage peer_addr, socklen_t pe
 				// If there is no NAK behind
 				if (move) {
 					// Move the window
-					targetFrame = i;
+					targetFrame = i+1;
 				}
 			} else {
 				move = false;
 				targetFrame = i;
 				// If timeout
 				if (listOfFrame[i].untilTimeout == 0) {
+					printf("Timeout!!! %d\n",i);
 					// Reset timeout
 					listOfFrame[i].untilTimeout = timeout;
 					// Send frame
 					sendFrame(sockfd, listOfFrame[i].frame, peer_addr, peer_addr_len);
 				} else {
+					printf("Wait!!! %d\n",i);
 					// Decrease timeout
 					listOfFrame[i].untilTimeout--;
 				}
@@ -200,9 +202,16 @@ void slidingProtocol(int sockfd, struct sockaddr_storage peer_addr, socklen_t pe
 		// Move window for real
 		startFrame = targetFrame;
 
-		usleep(1 * 1000);
+		// Wait until the last frame is caught or timeout
+		int backWindow = startFrame+windowSize-1;
+//		while (!listOfFrame[backWindow].ack || (listOfFrame[backWindow].untilTimeout > 0)) {}
+		printf("Ready for new cycle\n");
+
+		usleep(1000 * 1000);
 
 	}
+
+	printf("Sliding window finished\n");
 
 }
 
@@ -260,7 +269,7 @@ int main(int argc, char *argv[]) {
 
 			if (testChecksumACK(recv)) {
 				if (recv.ack == ACK) {
-					printf("Pesan terkirim\n");
+					printf("Pesan terkirim untuk frameno = %d\n",recv.frameno-1);
 					ptr[recv.frameno-1].ack = true;
 				} else {
 					printf("Pesan tidak sampai\n");
@@ -328,12 +337,19 @@ int main(int argc, char *argv[]) {
 		slidingProtocol(sockfd,peer_addr,peer_addr_len,ptr,indexFrame);
 
 		*shtdown = true;
+
+		// Magic to end receiver
+		char buf[1];
+		buf[0] = 0;
+		peer_addr_len = sizeof(struct sockaddr_storage);
+		sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
 		
 		wait(NULL);
 
 		// Freeing global variables' memory
 		munmap(recieved, sizeof *recieved);
 		munmap(shtdown, sizeof *shtdown);
+		munmap(ptr, sizeof *ptr);
 
 
 		// Terminating connection

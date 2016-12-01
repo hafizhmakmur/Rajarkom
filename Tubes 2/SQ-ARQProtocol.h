@@ -1,6 +1,14 @@
 /*
 * File : dcomm.h
 */
+
+/* Referensi untuk Sliding Protocol 
+
+Checksum : http://scanftree.com/programs/c/implementation-of-checksum/
+
+
+*/
+
 #include "dcomm.h"
 
 #ifndef _SQ_ARQ_Protocol_H_
@@ -92,8 +100,6 @@ Boolean testChecksumACK(ACKFormat ackf) {
 	
 	sum += ackf.ack;
 
-	printf("Yang didapat %d %d\n",sum,ackf.checksum);
-
 	return ~(sum+ackf.checksum) == 0;
 
 }
@@ -125,34 +131,6 @@ FRAME createFrame(Byte frameno, Byte data[MessageLength]) {
 	return ret;
 
 }
-
-/*
-void createMsgFrame(FRAME frame, Byte message[frameLength]) {
-
-	message[0] = frame.soh;
-	message[1] = frame.frameno;
-	message[2] = frame.stx;
-
-	int i;
-	for (i=3;i<3+MessageLength;i++) {
-		message[i] = frame.data[i-3];
-	}
-
-	message[3+frameLength] = frame.etx;
-	message[4+frameLength] = frame.checksum;
-
-}
-*/
-
-/*
-FRAME getFrame(Byte message[frameLength]) {
-
-	FRAME ret;
-
-	if (message[0] != SOH) return NULL;
-	ret.soh = SOH;
-}
-*/
 
 ACKFormat createACK(Byte frameno, unsigned int ack) {
 	ACKFormat af;

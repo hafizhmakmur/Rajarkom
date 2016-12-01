@@ -36,14 +36,14 @@ int *cnsmByte = 0;
 int FrameNo = 0;
 struct sockaddr_in client, local;
 typedef struct CaFrame{
-	char data[MessageLength+8];
+	Byte data[sizeof(FRAME)];
 	int LastIdx;
 } CaFrame;
 
 CaFrame Seed;
 FRAME f;
 FRAME FrameList[maxFrame];
-Boolean Finish = false;
+Boolean *Finish = false;
 
 /*define Limits*/
 #define MIN_UPPERLIMIT 4
@@ -83,7 +83,7 @@ void SendACK (int sockfd, Byte ack, Byte Frameno){
 		}
 		i++;
 	}
-	printf("Besar ACK adalah %d %d %d\n",i,sizeof(ackmsg),ackmsg.checksum);
+
 	if(ack == ACK){
 		printf("Mengirim ACK Frame No. %d\n", Frameno);
 	}
@@ -140,6 +140,12 @@ int main(int argc, char const *argv[])
 
 	*cnsmByte = 0;
 
+	Finish = mmap(NULL, sizeof *Finish, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*Finish = false;
+
+
 
 	Byte c;
 	
@@ -186,13 +192,13 @@ int main(int argc, char const *argv[])
 	if(pid != 0){
 		/*** IF PARENT PROCESS ***/
 		while ( true ) {
+
 			char * s = rcvchar(newsockfd, rxq);
-			//if (s != NULL) c = *s;
-	
+			
 			/* Quit on end of file */	
-			if (Finish) {
+			if (*Finish) {
 				wait(NULL);
-				printf("Mengakhiri program %d\n",c);
+				printf("Mengakhiri program\n");
 				munmap(ptr, sizeof *ptr);
 				munmap(rxq, sizeof *rxq);
 				munmap(send_xon, sizeof *send_xon);
@@ -202,6 +208,7 @@ int main(int argc, char const *argv[])
 				munmap(cnsmByte, sizeof *cnsmByte);
 				exit(0);
 			}
+	
 		}
 		munmap(rxq, sizeof *rxq);
 	} else {
@@ -212,27 +219,32 @@ int main(int argc, char const *argv[])
 			Byte *coba = q_get(newsockfd, rxq, &c);
 			if(coba != NULL){
 				if(rxq->front > 0){
-					if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
+				//	if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
 						printf("Mengkonsumsi byte ke-%d: '%c', %d\n", ++*cnsmByte, rxq->data[rxq->front - 1], rxq->data[rxq->front - 1]);
 						Seed.data[Seed.LastIdx + 1] = rxq->data[rxq->front -1];
 						Seed.LastIdx++;
-					}
+				/*	}
 					else if(rxq->data[rxq->front - 1] == Endfile){
 						//do nothing
 						exit(0);
 					}
+				*/
 				}
 				else{
-					if((rxq->data[RXQSIZE] != Endfile) && (rxq->data[RXQSIZE] != CR) && (rxq->data[RXQSIZE] != LF)){
+				//	if((rxq->data[RXQSIZE] != Endfile) && (rxq->data[RXQSIZE] != CR) && (rxq->data[RXQSIZE] != LF)){
 						printf("Mengkonsumsi byte ke-%d: '%c', %d\n", ++*cnsmByte, rxq->data[RXQSIZE], rxq->data[RXQSIZE]);
 						Seed.data[Seed.LastIdx + 1] = rxq->data[RXQSIZE];
 						Seed.LastIdx++;
-					}
+				/*	}
 					else if(rxq->data[RXQSIZE] == Endfile){
 						exit(0);
 					}
+				*/
 				}
-				if(Seed.LastIdx == 23){
+				if(Seed.LastIdx == (sizeof(FRAME)-1)){
+					memcpy(&f,Seed.data,sizeof(Seed.data));
+					if ((f.soh == SOH) && (f.stx == STX) && (f.etx == ETX)) {
+					/*
 					if((Seed.data[0] == SOH) && (Seed.data[2] == STX) && (Seed.data[MessageLength+3] == ETX)){
 						f.soh = Seed.data[0];
 						f.frameno = Seed.data[1];
@@ -243,13 +255,13 @@ int main(int argc, char const *argv[])
 							idx++;
 						}
 						f.etx = Seed.data[MessageLength+3];
-						
+					*/
 						if(testChecksumData(f)){
 							SendACK(newsockfd, ACK, f.frameno+1);
 							printf("Frame Nomor %d: ", f.frameno);
 							for(int j = 0; j < MessageLength; j++){
 								if(f.data[j] != NULL){
-									printf("%c ", f.data[j]);
+									printf("%c", f.data[j]);
 								}
 							}
 							printf("\n");
@@ -263,7 +275,9 @@ int main(int argc, char const *argv[])
 					}
 					Seed.LastIdx = -1;
 					if(IsLastFrame(f)){
-						Finish = true;
+						printf("Finished\n");
+						*Finish = true;
+						exit(0);
 					}
 				}
 				
@@ -305,7 +319,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 			queue->data[queue->rear] = t[0];
 			queue->count = queue->count + 1;
 			
-			if(queue->rear < 24){
+			if(queue->rear < RXQSIZE){
 				queue->rear = queue->rear + 1;
 			}
 			else{
