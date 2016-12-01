@@ -146,7 +146,7 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 			}
 		}
 
-		printf("Mengirim byte ke-%d: %c,'%d'\n",i+1,red,red);
+		printf("Mengirim byte ke-%d: '%c', %d\n",i+1,red,red);
 		
 		char buf[1];
 		buf[0] = red;

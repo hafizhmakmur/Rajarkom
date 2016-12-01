@@ -213,7 +213,7 @@ int main(int argc, char const *argv[])
 			if(coba != NULL){
 				if(rxq->front > 0){
 					if((rxq->data[rxq->front - 1] != Endfile) && (rxq->data[rxq->front - 1] != CR) && (rxq->data[rxq->front - 1] != LF)){
-						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++*cnsmByte, rxq->data[rxq->front - 1]);
+						printf("Mengkonsumsi byte ke-%d: '%c', %d\n", ++*cnsmByte, rxq->data[rxq->front - 1], rxq->data[rxq->front - 1]);
 						Seed.data[Seed.LastIdx + 1] = rxq->data[rxq->front -1];
 						Seed.LastIdx++;
 					}
@@ -223,12 +223,12 @@ int main(int argc, char const *argv[])
 					}
 				}
 				else{
-					if((rxq->data[7] != Endfile) && (rxq->data[7] != CR) && (rxq->data[7] != LF)){
-						printf("Mengkonsumsi byte ke-%d: '%c'\n", ++*cnsmByte, rxq->data[7]);
-						Seed.data[Seed.LastIdx + 1] = rxq->data[7];
+					if((rxq->data[RXQSIZE] != Endfile) && (rxq->data[RXQSIZE] != CR) && (rxq->data[RXQSIZE] != LF)){
+						printf("Mengkonsumsi byte ke-%d: '%c', %d\n", ++*cnsmByte, rxq->data[RXQSIZE], rxq->data[RXQSIZE]);
+						Seed.data[Seed.LastIdx + 1] = rxq->data[RXQSIZE];
 						Seed.LastIdx++;
 					}
-					else if(rxq->data[7] == Endfile){
+					else if(rxq->data[RXQSIZE] == Endfile){
 						exit(0);
 					}
 				}
@@ -363,7 +363,7 @@ static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {
 		if(queue->count > 0){
 			(*data) = queue->data[queue->front];
 			queue->count = queue->count - 1;
-			if(queue->front < 7){
+			if(queue->front < RXQSIZE){
 				queue->front = queue->front + 1;
 			}
 			else{
