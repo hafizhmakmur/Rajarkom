@@ -329,6 +329,10 @@ int main(int argc, char *argv[]) {
 			indexFrame++;
 		}
 
+		fclose(f);
+
+		slidingProtocol(sockfd,peer_addr,peer_addr_len,ptr,indexFrame);
+
 		// Mengirim akhir file
 		message[0] = Endfile;
 		int j;
@@ -339,18 +343,17 @@ int main(int argc, char *argv[]) {
 		ptr[indexFrame] = createARQ(createFrame(indexFrame,message));
 		indexFrame++;
 
-		fclose(f);
+		sendFrame(sockfd, createFrame(indexFrame,message), peer_addr, peer_addr_len);
 
-		slidingProtocol(sockfd,peer_addr,peer_addr_len,ptr,indexFrame);
 
 		*shtdown = true;
-
+/*
 		// Magic to end receiver
 		char buf[1];
 		buf[0] = 0;
 		peer_addr_len = sizeof(struct sockaddr_storage);
 		sendto(sockfd, buf, 1, 0, (struct sockaddr *) &peer_addr, peer_addr_len);
-		
+*/		
 		wait(NULL);
 
 		// Freeing global variables' memory

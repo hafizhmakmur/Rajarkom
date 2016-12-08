@@ -256,7 +256,9 @@ int main(int argc, char const *argv[])
 						}
 						f.etx = Seed.data[MessageLength+3];
 					*/
-						if(testChecksumData(f)){
+						int random = rand()%3;
+						printf("Hasil random : %d\n", random);
+						if(testChecksumData(f) && random){
 							SendACK(newsockfd, ACK, f.frameno+1);
 							printf("Frame Nomor %d: ", f.frameno);
 							for(int j = 0; j < MessageLength; j++){
@@ -265,6 +267,11 @@ int main(int argc, char const *argv[])
 								}
 							}
 							printf("\n");
+							if(IsLastFrame(f)){
+								printf("Finished\n");
+								*Finish = true;
+								exit(0);
+							}
 						}
 						else{
 							SendACK(newsockfd, NAK, f.frameno+1);
@@ -274,11 +281,6 @@ int main(int argc, char const *argv[])
 						SendACK(newsockfd, NAK, Seed.data[1]);
 					}
 					Seed.LastIdx = -1;
-					if(IsLastFrame(f)){
-						printf("Finished\n");
-						*Finish = true;
-						exit(0);
-					}
 				}
 				
 			}
@@ -357,7 +359,7 @@ static Byte *rcvchar(int sockfd, QTYPE *queue) {
 }
 
 	/* q_get returns a pointer to the buffer where data is read or NULL if
-	* buffer is empty.
+	* buffer is empty.3wax
 	*/
 
 static Byte *q_get(int sockfd, QTYPE *queue, Byte *data) {

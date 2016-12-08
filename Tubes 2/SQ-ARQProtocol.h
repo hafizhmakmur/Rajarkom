@@ -14,10 +14,10 @@ Checksum : http://scanftree.com/programs/c/implementation-of-checksum/
 #ifndef _SQ_ARQ_Protocol_H_
 #define _SQ_ARQ_Protocol_H_
 
-#define MessageLength 	16		/* Maximum length of message per frame */
+#define MessageLength 	5		/* Maximum length of message per frame */
 
 #define maxFrame 	500
-#define windowSize 	5
+#define windowSize 	2
 #define timeout 	5
 
 typedef struct FRAME {
