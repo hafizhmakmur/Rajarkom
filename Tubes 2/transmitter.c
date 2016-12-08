@@ -22,6 +22,7 @@ typedef struct ARQ {
 static Byte *recieved;
 Boolean *shtdown;
 ARQ listFrame[maxFrame];
+Boolean *isXOFF = false;
 
 // Error message
 void error(const char *msg) {
@@ -92,8 +93,10 @@ ACKFormat recvACK(int sockfd, struct sockaddr_storage peer_addr, socklen_t peer_
 
 		if (*recieved == XOFF) {
 			printf("XOFF diterima\n");
+			*isXOFF = true;
 		} else if (*recieved == XON) {
 			printf("XON diterima\n");
+			*isXOFF = false;
 		} else {
 			message[i] = *recieved;
 			i++;
@@ -113,7 +116,6 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 	// Variable declaration
 	char red;
 	int i = 0;
-	Boolean isXOFF = false;
 
 	// Create stream of byte from a frame
 	Byte msg[sizeof(frame)];
@@ -130,19 +132,19 @@ void sendFrame(int sockfd, FRAME frame, struct sockaddr_storage peer_addr, sockl
 		red = msg[i];
 
 		if (*recieved == XOFF) {
-			isXOFF = true;
+			*isXOFF = true;
 		}
 		if (*recieved == XON) {
-			isXOFF = false;
+			*isXOFF = false;
 		}
-		while (isXOFF) {
+		while (*isXOFF) {
 			printf("Menunggu XON...\n");
 			sleep(1);
 			if (*recieved == XOFF) {
-				isXOFF = true;
+				*isXOFF = true;
 			}
 			if (*recieved == XON) {
-				isXOFF = false;
+				*isXOFF = false;
 			}
 		}
 
@@ -233,6 +235,11 @@ int main(int argc, char *argv[]) {
                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	*recieved = XON;
+
+	isXOFF = mmap(NULL, sizeof *isXOFF, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	*isXOFF = XON;
 
 //	printf("Tadinya %d\n",*recieved);
 
